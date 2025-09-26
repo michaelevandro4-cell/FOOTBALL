@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <title>Futebol 2D Realista</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0b6623;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    #campo {
+      position: relative;
+      width: 100vw;
+      height: 80vh;
+      background: radial-gradient(circle at center, #228B22 60%, #0b6623 100%);
+      border: 5px solid white;
+      box-sizing: border-box;
+    }
+    .jogador, .inimigo {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+    }
+    .jogador {
+      background-color: blue;
+    }
+    .inimigo {
+      background-color: red;
+    }
+    #bola {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background-color: white;
+      border-radius: 50%;
+    }
+    .gol {
+      position: absolute;
+      width: 20px;
+      height: 100px;
+      background-color: yellow;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    #gol-esquerda {
+      left: 0;
+    }
+    #gol-direita {
+      right: 0;
+    }
+    #joystick-zone {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      width: 150px;
+      height: 150px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 50%;
+    }
+    #acoes {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .botao {
+      padding: 15px;
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #placar {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="campo">
+    <div class="gol" id="gol-esquerda"></div>
+    <div class="gol" id="gol-direita"></div>
+    <div class="jogador" id="jogador"></div>
+    <div class="inimigo" id="inimigo"></div>
+    <div id="bola"></div>
+    <div id="placar">Gols: 0 | Tempo: 60s</div>
+  </div>
+
+  <div id="joystick-zone"></div>
+
+  <div id="acoes">
+    <button class="botao" onclick="chutar()">Chutar</button>
+    <button class="botao" onclick="passar()">Passar</button>
+  </div>
+
+  <!-- Sons -->
+  <audio id="som-chute" src="https://www.soundjay.com/button/sounds/button-16.mp3"></audio>
+  <audio id="som-gol" src="https://www.soundjay.com/human/sounds/applause-8.mp3"></audio>
+  <audio id="som-colisao" src="https://www.soundjay.com/button/sounds/button-10.mp3"></audio>
+
+  <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
+  <script>
+    const jogador = document.getElementById('jogador');
+    const inimigo = document.getElementById('inimigo');
+    const bola = document.getElementById('bola');
+    const placar = document.getElementById('placar');
+    const somChute = document.getElementById('som-chute');
+    const somGol = document.getElementById('som-gol');
+    const somColisao = document.getElementById('som-colisao');
+
+    let posJogador = { x: 100, y: 100 };
+    let posInimigo = { x: 400, y: 200 };
+    let posBola = { x: 150, y: 120 };
+    let gols = 0;
+    let tempo = 60;
+
+    function atualizarPosicoes() {
+      jogador.style.left = `${posJogador.x}px`;
+      jogador.style.top = `${posJogador.y}px`;
+      inimigo.style.left = `${posInimigo.x}px`;
+      inimigo.style.top = `${posInimigo.y}px`;
+      bola.style.left = `${posBola.x}px`;
+      bola.style.top = `${posBola.y}px`;
+    }
+
+    function atualizarPlacar() {
+      placar.textContent = `Gols: ${gols} | Tempo: ${tempo}s`;
+    }
+
+    const joystick = nipplejs.create({
+      zone: document.getElementById('joystick-zone'),
+      mode: 'static',
+      position: { left: '75px', bottom: '75px' },
+      color: 'blue'
+    });
+
+    joystick.on('move', (evt, data) => {
+      if (data && data.vector) {
+        posJogador.x += data.vector.x * 2;
+        posJogador.y += data.vector.y * 2;
+        verificarColisao();
+        atualizarPosicoes();
+      }
+    });
+
+    function chutar() {
+      somChute.play();
+      posBola.x = posJogador.x + 80;
+      posBola.y = posJogador.y;
+      verificarGol();
+      atualizarPosicoes();
+    }
+
+    function passar() {
+      posBola.x = posJogador.x + 40;
+      posBola.y = posJogador.y + 40;
+      atualizarPosicoes();
+    }
+
+    function verificarGol() {
+      const campo = document.getElementById('campo');
+      const golDireita = document.getElementById('gol-direita').getBoundingClientRect();
+      const bolaRect = bola.getBoundingClientRect();
+
+      if (
+        bolaRect.right >= golDireita.left &&
+        bolaRect.top >= golDireita.top &&
+        bolaRect.bottom <= golDireita.bottom
+      ) {
+        gols++;
+        somGol.play();
+        reiniciarPosicoes();
+        atualizarPlacar();
+      }
+    }
+
+    function reiniciarPosicoes() {
+      posJogador = { x: 100, y: 100 };
+      posInimigo = { x: 400, y: 200 };
+      posBola = { x: 150, y: 120 };
+      atualizarPosicoes();
+    }
+
+    function verificarColisao() {
+      const dx = posJogador.x - posBola.x;
+      const dy = posJogador.y - posBola.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 50) {
+        somColisao.play();
+        posBola.x += dx * 0.5;
+        posBola.y += dy * 0.5;
+      }
+    }
+
+    function moverInimigo() {
+      const dx = posBola.x - posInimigo.x;
+      const dy = posBola.y - posInimigo.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 1) {
+        posInimigo.x += dx / dist;
+        posInimigo.y += dy / dist;
+      }
+    }
+
+    function atualizarTempo() {
+      if (tempo > 0) {
+        tempo--;
+        atualizarPlacar();
+      } else {
+        alert(`Fim de jogo! Você fez ${gols} gol(s).`);
+        gols = 0;
+        tempo = 60;
+        reiniciarPosicoes();
+        atualizarPlacar();
+      }
+    }
+
+    setInterval(() => {
+      moverInimigo();
+      verificarColisao();
+      verificarGol();
+      atualizarPosicoes();
+    }, 50);
+
+    setInterval(atualizarTempo, 1000);
+
+    atualizarPosicoes();
+    atualizarPlacar();
+  </script>
+</body>
+</html>
